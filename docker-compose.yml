@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  response-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: boloindia-response-service
+    restart: unless-stopped
+    ports:
+      - "8089:8089"
+    environment:
+      NODE_ENV: production
+      PORT: 8089
+      SERVICE_NAME: response-service
+      
+      # MongoDB
+      MONGODB_URI: mongodb://responseuser:responsepass@mongodb:27017/responsedb?authSource=responsedb
+      MONGODB_DB_NAME: responsedb
+      
+      # JWT
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt-public-key.pem
+      JWT_ISSUER: boloindia-auth-service
+      JWT_AUDIENCE: boloindia-services
+      
+      # MinIO
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: false
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET_NAME: responses
+      MINIO_PUBLIC_URL: http://localhost:9000
+      
+      # Kafka
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_CLIENT_ID: response-service
+      KAFKA_GROUP_ID: response-service-group
+      
+      # Rate Limiting
+      RATE_LIMIT_ANONYMOUS_MAX: 5
+      RATE_LIMIT_AUTHENTICATED_MAX: 20
+      
+      # Logging
+      LOG_LEVEL: info
+    
+    volumes:
+      - ./keys:/app/keys:ro
+      - ./logs:/app/logs
+      - ./tmp:/app/tmp
+    
+    depends_on:
+      - mongodb
+      - kafka
+      - minio
+    
+    networks:
+      - boloindia-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  boloindia-network:
+    external: true
